@@ -41,13 +41,13 @@ Quick presets get you started:
 
 Because this is a Progressive Web App (PWA), it behaves like a native iOS application — home screen icon, fullscreen view, and full offline capability.
 
+The app is live at **[swepalm.github.io/my-five-golf](https://swepalm.github.io/my-five-golf/)**.
+
 ### How to install it on your iPhone:
-1. Host the files on a public HTTPS server (like GitHub Pages), or make sure your iPhone is on the same Wi-Fi network as your computer.
-2. Find your computer's local IP address (e.g., `192.168.1.XX`).
-3. On your iPhone, open **Safari** and navigate to `http://192.168.1.XX:8000`.
-4. Tap the **Share** button and select **Add to Home Screen**.
-5. Name it **MyFive** and tap **Add**.
-6. Launch the app from your home screen!
+1. Open **Safari** and navigate to `https://swepalm.github.io/my-five-golf/`.
+2. Tap the **Share** button and select **Add to Home Screen**.
+3. Name it **MyFive** and tap **Add**.
+4. Launch the app from your home screen — after the first visit it works fully offline.
 
 ---
 
