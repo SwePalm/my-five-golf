@@ -11,11 +11,13 @@ const STAT_LIBRARY = [
   { id: 'par5_bogey',      title: 'Bogey on Par 5',     subtitle: 'Bogey or worse on a par 5',               category: 'Scoring', parOnly: 5 },
   { id: 'par3_double',     title: 'Double on Par 3',    subtitle: 'Double bogey or worse on a par 3',        category: 'Scoring', parOnly: 3 },
   // Off the Tee
+  { id: 'fairway_miss',    title: 'Missed Fairway',     subtitle: 'Tee shot missed the fairway (FIR)',       category: 'Off the Tee', parsAllowed: [4, 5], directions: ['left', 'right'] },
   { id: 'lost_ball_tee',   title: 'Lost Ball off Tee',  subtitle: 'Ball lost or out of bounds from the tee', category: 'Off the Tee' },
   { id: 'water_tee',       title: 'Tee Shot in Hazard', subtitle: 'Tee shot into water or a penalty area',   category: 'Off the Tee' },
   { id: 'recovery_tee',    title: 'Punch-Out',          subtitle: 'Tee shot forced a recovery or punch-out', category: 'Off the Tee' },
   { id: 're_tee',          title: 'Re-Tee',             subtitle: 'Had to hit 3 off the tee',                category: 'Off the Tee' },
   // Approach
+  { id: 'gir_miss',        title: 'Missed Green (GIR)', subtitle: 'Green not hit in regulation',             category: 'Approach', directions: ['short', 'long', 'left', 'right'] },
   { id: 'wedge_green_miss', title: 'Wedge Miss',        subtitle: 'Missed the green from wedge distance',    category: 'Approach' },
   { id: 'duff_top',        title: 'Duff / Top',         subtitle: 'Chunked or topped a full shot',           category: 'Approach' },
   { id: 'approach_hazard', title: 'Approach in Trouble', subtitle: 'Approach into a bunker or penalty area', category: 'Approach' },
@@ -23,6 +25,8 @@ const STAT_LIBRARY = [
   { id: 'double_chip',     title: 'Chipped Twice+',     subtitle: '2+ chips/pitches around the same green',  category: 'Short Game' },
   { id: 'bunker_fail',     title: 'Left in Bunker',     subtitle: 'Needed 2+ tries to escape the sand',      category: 'Short Game' },
   { id: 'chip_miss',       title: 'Chip Missed Green',  subtitle: 'A chip or pitch failed to reach the green', category: 'Short Game' },
+  { id: 'updown_fail',     title: 'No Up & Down',       subtitle: 'Missed the green but failed to save par', category: 'Short Game' },
+  { id: 'sand_save_fail',  title: 'No Sand Save',       subtitle: 'Greenside bunker visit without saving par', category: 'Short Game' },
   // Putting
   { id: 'three_putt',      title: 'Three Putt+',        subtitle: '3 or more putts on the green',            category: 'Putting' },
   { id: 'short_putt_miss', title: 'Missed Short Putt',  subtitle: 'Missed a putt inside 1 meter',            category: 'Putting' },
@@ -32,6 +36,7 @@ const STAT_LIBRARY = [
 ];
 
 const STATS_BY_ID = Object.fromEntries(STAT_LIBRARY.map(s => [s.id, s]));
+const DIRECTION_LABELS = { left: 'Left', right: 'Right', short: 'Short', long: 'Long' };
 const STAT_CATEGORIES = ['Scoring', 'Off the Tee', 'Approach', 'Short Game', 'Putting', 'General'];
 const TRACK_COUNT = 5;
 
@@ -53,6 +58,12 @@ const PRESETS = [
     name: 'Short Game 5',
     desc: 'Sharpen everything inside 100m',
     stats: ['double_chip', 'bunker_fail', 'chip_miss', 'three_putt', 'short_putt_miss']
+  },
+  {
+    id: 'tour',
+    name: 'Tour 5',
+    desc: 'PGA-style categories, error-flipped',
+    stats: ['fairway_miss', 'gir_miss', 'updown_fail', 'sand_save_fail', 'three_putt']
   }
 ];
 
@@ -159,7 +170,9 @@ function getTrackedStats(round) {
 
 function statAppliesTo(statId, par) {
   const stat = STATS_BY_ID[statId];
-  return !stat.parOnly || stat.parOnly === par;
+  if (stat.parOnly && stat.parOnly !== par) return false;
+  if (stat.parsAllowed && !stat.parsAllowed.includes(par)) return false;
+  return true;
 }
 
 // --- COURSE MEMORY ---
@@ -209,7 +222,8 @@ function startNewRound(courseName, date, numHoles = 18, startHole = 1) {
       return {
         holeNumber,
         par: (course && course.pars[holeNumber]) || 4,
-        events: {}
+        events: {},
+        details: {}
       };
     })
   };
@@ -665,23 +679,43 @@ function renderActiveHole() {
   const container = document.getElementById('active-round-content');
   if (!container) return;
 
+  // Older in-progress rounds may predate miss-direction details
+  if (!hole.details) hole.details = {};
+
   // Build the list of toggles
   let togglesHTML = '';
   tracked.forEach(id => {
     const stat = STATS_BY_ID[id];
     const isDisabled = !statAppliesTo(id, hole.par);
     const isChecked = hole.events[id] && !isDisabled;
+    const detail = hole.details[id] || '';
+
+    // Optional miss-direction row, shown only while the event is toggled on
+    let directionHTML = '';
+    if (stat.directions) {
+      directionHTML = `
+        <div class="direction-row">
+          <span class="direction-label">Where?</span>
+          ${stat.directions.map(d => `
+            <button class="direction-btn ${detail === d ? 'active' : ''}" data-stat="${id}" data-dir="${d}">${DIRECTION_LABELS[d]}</button>
+          `).join('')}
+        </div>
+      `;
+    }
 
     togglesHTML += `
       <div class="toggle-card ${isDisabled ? 'disabled' : ''} ${isChecked ? 'active' : ''}" data-metric="${id}">
-        <div class="toggle-card-info">
-          <span class="toggle-title">${stat.title}</span>
-          <span class="toggle-subtitle">${stat.subtitle}</span>
+        <div class="toggle-main">
+          <div class="toggle-card-info">
+            <span class="toggle-title">${stat.title}</span>
+            <span class="toggle-subtitle">${stat.subtitle}</span>
+          </div>
+          <div class="toggle-control">
+            <input type="checkbox" id="chk-${id}" ${isChecked ? 'checked' : ''} ${isDisabled ? 'disabled' : ''}>
+            <label for="chk-${id}"></label>
+          </div>
         </div>
-        <div class="toggle-control">
-          <input type="checkbox" id="chk-${id}" ${isChecked ? 'checked' : ''} ${isDisabled ? 'disabled' : ''}>
-          <label for="chk-${id}"></label>
-        </div>
+        ${directionHTML}
       </div>
     `;
   });
@@ -809,10 +843,11 @@ function renderActiveHole() {
       const selectedPar = parseInt(e.currentTarget.getAttribute('data-par'));
       hole.par = selectedPar;
 
-      // Clear any events that no longer apply on this par
+      // Clear any events (and their details) that no longer apply on this par
       tracked.forEach(id => {
         if (!statAppliesTo(id, selectedPar)) {
           hole.events[id] = false;
+          delete hole.details[id];
         }
       });
 
@@ -822,13 +857,26 @@ function renderActiveHole() {
     });
   });
 
+  // Shared un/check logic: clearing an event also clears its miss direction
+  function setEventChecked(card, metric, checked) {
+    card.classList.toggle('active', checked);
+    hole.events[metric] = checked;
+    if (!checked) {
+      delete hole.details[metric];
+      card.querySelectorAll('.direction-btn').forEach(b => b.classList.remove('active'));
+    }
+    saveCurrentRound();
+  }
+
   // 3. Toggle click listeners (clicking the whole card should toggle)
   container.querySelectorAll('.toggle-card').forEach(card => {
     card.addEventListener('click', (e) => {
       if (e.currentTarget.classList.contains('disabled')) return;
 
-      // Prevent double triggers if clicking the checkbox/label directly
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'LABEL') {
+      // Prevent double triggers if clicking the checkbox/label directly,
+      // and let direction buttons handle their own clicks
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'LABEL' ||
+          e.target.classList.contains('direction-btn')) {
         return;
       }
 
@@ -836,16 +884,7 @@ function renderActiveHole() {
       const metric = e.currentTarget.getAttribute('data-metric');
       const checkbox = document.getElementById(`chk-${metric}`);
       checkbox.checked = !checkbox.checked;
-
-      // Update UI classes
-      if (checkbox.checked) {
-        e.currentTarget.classList.add('active');
-      } else {
-        e.currentTarget.classList.remove('active');
-      }
-
-      hole.events[metric] = checkbox.checked;
-      saveCurrentRound();
+      setEventChecked(e.currentTarget, metric, checkbox.checked);
     });
   });
 
@@ -855,14 +894,26 @@ function renderActiveHole() {
       triggerHaptic();
       const metric = e.currentTarget.id.replace('chk-', '');
       const card = e.currentTarget.closest('.toggle-card');
+      setEventChecked(card, metric, e.currentTarget.checked);
+    });
+  });
 
-      if (e.currentTarget.checked) {
-        card.classList.add('active');
+  // 4. Miss-direction buttons (tap again to unset)
+  container.querySelectorAll('.direction-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      triggerHaptic();
+      const statId = btn.getAttribute('data-stat');
+      const dir = btn.getAttribute('data-dir');
+      const row = btn.closest('.direction-row');
+      if (hole.details[statId] === dir) {
+        delete hole.details[statId];
+        btn.classList.remove('active');
       } else {
-        card.classList.remove('active');
+        hole.details[statId] = dir;
+        row.querySelectorAll('.direction-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
       }
-
-      hole.events[metric] = e.currentTarget.checked;
       saveCurrentRound();
     });
   });
@@ -903,7 +954,8 @@ function showRoundSummary(roundId) {
     let holeErrors = [];
     tracked.forEach(id => {
       if (h.events[id] && statAppliesTo(id, h.par)) {
-        holeErrors.push(STATS_BY_ID[id].title);
+        const dir = h.details && h.details[id] ? ` · ${DIRECTION_LABELS[h.details[id]]}` : '';
+        holeErrors.push(STATS_BY_ID[id].title + dir);
       }
     });
 
@@ -1040,6 +1092,13 @@ function renderTrendsView() {
       <h3 class="card-title">Recurring Leaks (Events per 18 Holes)</h3>
       <div class="chart-container" id="svg-leaks-chart">
         <!-- SVG will be injected here -->
+      </div>
+    </div>
+
+    <div class="card hidden" id="miss-directions-card">
+      <h3 class="card-title">Miss Directions</h3>
+      <div id="miss-directions-content">
+        <!-- Rendered per season -->
       </div>
     </div>
 
@@ -1241,6 +1300,43 @@ function updateSeasonGraphs(year) {
       ${barsHTML}
     </div>
   `;
+
+  // 4. Miss Directions breakdown (only when directional details were logged)
+  const directionsCard = document.getElementById('miss-directions-card');
+  const directionsContent = document.getElementById('miss-directions-content');
+  const dirCounts = {}; // statId -> { direction: count }
+  filteredRounds.forEach(r => {
+    r.holes.forEach(h => {
+      if (!h.details) return;
+      Object.entries(h.details).forEach(([id, dir]) => {
+        if (dir && h.events && h.events[id] && STATS_BY_ID[id]) {
+          dirCounts[id] = dirCounts[id] || {};
+          dirCounts[id][dir] = (dirCounts[id][dir] || 0) + 1;
+        }
+      });
+    });
+  });
+
+  const dirStatIds = Object.keys(dirCounts);
+  if (dirStatIds.length === 0) {
+    directionsCard.classList.add('hidden');
+  } else {
+    directionsCard.classList.remove('hidden');
+    directionsContent.innerHTML = dirStatIds.map(id => {
+      const stat = STATS_BY_ID[id];
+      const order = stat.directions || Object.keys(dirCounts[id]);
+      const chips = order
+        .filter(d => dirCounts[id][d])
+        .map(d => `<span class="dir-chip">${DIRECTION_LABELS[d]} ×${dirCounts[id][d]}</span>`)
+        .join('');
+      return `
+        <div class="dir-stat-row">
+          <span class="dir-stat-title">${stat.title}</span>
+          <div class="dir-chip-group">${chips}</div>
+        </div>
+      `;
+    }).join('');
+  }
 }
 
 // 6. Settings View

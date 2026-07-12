@@ -13,17 +13,20 @@ A great round of golf isn't about hitting 18 perfect shots — it's about avoidi
 | Category | Stats |
 |---|---|
 | **Scoring** | Double Bogey+ • Triple Bogey+ • Bogey on Par 5 • Double on Par 3 |
-| **Off the Tee** | Lost Ball off Tee • Tee Shot in Hazard • Punch-Out • Re-Tee |
-| **Approach** | Wedge Miss • Duff / Top • Approach in Trouble |
-| **Short Game** | Chipped Twice+ • Left in Bunker • Chip Missed Green |
+| **Off the Tee** | Missed Fairway (FIR) • Lost Ball off Tee • Tee Shot in Hazard • Punch-Out • Re-Tee |
+| **Approach** | Missed Green (GIR) • Wedge Miss • Duff / Top • Approach in Trouble |
+| **Short Game** | Chipped Twice+ • Left in Bunker • Chip Missed Green • No Up & Down • No Sand Save |
 | **Putting** | Three Putt+ • Missed Short Putt |
 | **General** | Penalty Stroke • Mental Error |
+
+Classic tour rate stats (FIR, GIR, up & downs, sand saves) are tracked in their *failure* form, so everything counts toward the same goal. Missed Fairway and Missed Green also take an optional one-tap **miss direction** (left/right, short/long) — the Trends page shows where your misses cluster.
 
 Quick presets get you started:
 
 * **Classic Tiger 5** — the original five score-wreckers
 * **Beginner 5** — stop the big numbers first (lost balls, penalties, triples…)
 * **Short Game 5** — sharpen everything inside 100m
+* **Tour 5** — PGA-style categories, error-flipped (FIR, GIR, up & down, sand save, three putt)
 
 **The goal stays the same: zero events.**
 

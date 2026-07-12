@@ -498,7 +498,7 @@ select.form-control {
 
 .stat-val.val-small {
   font-size: 1.1rem;
-  height: 29px;
+  min-height: 29px;
   display: flex;
   align-items: center;
 }
@@ -514,6 +514,7 @@ select.form-control {
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
+  line-height: 1.35; /* long stat names wrap instead of overlapping the row below */
 }
 
 .badge-warning {
@@ -535,7 +536,7 @@ select.form-control {
 
 .preset-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
   margin-bottom: 1.5rem;
 }
@@ -800,11 +801,59 @@ select.form-control {
   border-radius: var(--border-radius-md);
   padding: 16px 20px;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   cursor: pointer;
   transition: all var(--transition-speed) ease;
   min-height: 72px; /* Large clickable target */
+}
+
+.toggle-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
+}
+
+/* Miss-direction follow-up, revealed while the event is toggled on */
+.direction-row {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.toggle-card.active .direction-row {
+  display: flex;
+}
+
+.direction-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+
+.direction-btn {
+  flex: 1;
+  font-family: var(--font-main);
+  height: 40px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-speed) ease;
+}
+
+.direction-btn.active {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  color: var(--text-dark);
 }
 
 .toggle-card-info {
@@ -985,6 +1034,7 @@ select.form-control {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--border-color);
 }
@@ -1164,16 +1214,22 @@ svg text {
 .bar-chart-labels {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
   font-size: 0.85rem;
   font-weight: 600;
 }
 
 .bar-title {
   color: var(--text-primary);
+  flex: 1;
+  min-width: 0;
 }
 
 .bar-legend-val {
   color: var(--text-primary);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .legend-unit {
@@ -1205,6 +1261,46 @@ svg text {
   font-size: 0.72rem;
   color: var(--text-muted);
   text-align: right;
+}
+
+/* Miss Directions breakdown (Trends) */
+.dir-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.dir-stat-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.dir-stat-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.dir-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.dir-chip {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background-color: rgba(var(--accent-rgb), 0.12);
+  border: 1px solid rgba(var(--accent-rgb), 0.3);
+  color: var(--accent-color);
+  white-space: nowrap;
 }
 
 /* Settings configurations */
