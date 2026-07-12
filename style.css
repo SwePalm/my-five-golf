@@ -186,6 +186,19 @@ p {
   margin-bottom: 1.25rem;
 }
 
+.card-title-stacked {
+  margin-bottom: 0.25rem;
+}
+
+.card-subtitle {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
 .card-alert {
   background: linear-gradient(135deg, rgba(22, 48, 38, 0.9), rgba(10, 24, 18, 0.95));
   border: 1px solid rgba(16, 185, 129, 0.25);

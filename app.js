@@ -1089,7 +1089,8 @@ function renderTrendsView() {
     </div>
 
     <div class="card" id="chart-leaks-card">
-      <h3 class="card-title">Recurring Leaks (Events per 18 Holes)</h3>
+      <h3 class="card-title card-title-stacked">Recurring Leaks</h3>
+      <p class="card-subtitle">Events per 18 holes</p>
       <div class="chart-container" id="svg-leaks-chart">
         <!-- SVG will be injected here -->
       </div>
