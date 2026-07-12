@@ -71,6 +71,7 @@ Now navigate to [http://localhost:8000](http://localhost:8000) in your browser.
 * **High-Contrast Themes:** Night Round dark mode and a Sunlight-Optimized light mode for visibility on the course. Follows your system setting by default; toggle inside **Settings**.
 * **Zero-Friction Logging:** Big, glove-friendly buttons (minimum 56px touch targets). Tap through holes in under 5 seconds.
 * **Context-Aware Toggles:** Par-restricted stats automatically disable on holes where they can't apply.
+* **Course Memory:** The app learns every course you finish a round on — the par you set for each hole is remembered (by real hole number) and pre-filled next time. Course names autocomplete at round setup, and you can start from any hole (start at 10, play 9 back-nine holes — or wrap past 18 back to 1). Manage saved courses in Settings.
 * **Resume In-Progress Rounds:** Close the app mid-round and it offers to restore your progress on next launch.
 * **Interactive Charts:** Lightweight SVG charts show your MyFive Index trend over time and rank your most frequent leaks.
 * **100% Offline & Safe:** All data stays on your device (`localStorage`). Export to JSON / CSV from Settings — and old **Tiger 5 stats backups import directly**, so no history is lost.

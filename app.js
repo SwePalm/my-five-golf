@@ -64,7 +64,8 @@ let state = {
   rounds: [],           // Finished rounds history
   currentRound: null,   // Active round (in_progress)
   theme: 'system',      // Theme selection: system, light, dark
-  selectedStats: null   // The user's chosen five stat ids (null = not chosen yet)
+  selectedStats: null,  // The user's chosen five stat ids (null = not chosen yet)
+  courses: []           // Remembered courses: { id, name, pars: { holeNumber: par } }
 };
 
 // --- HAPTICS ---
@@ -80,9 +81,11 @@ function loadState() {
     const savedRounds = localStorage.getItem('MYFIVE_ROUNDS');
     const savedCurrent = localStorage.getItem('MYFIVE_CURRENT_ROUND');
     const savedSettings = localStorage.getItem('MYFIVE_SETTINGS');
+    const savedCourses = localStorage.getItem('MYFIVE_COURSES');
 
     if (savedRounds) state.rounds = JSON.parse(savedRounds);
     if (savedCurrent) state.currentRound = JSON.parse(savedCurrent);
+    if (savedCourses) state.courses = JSON.parse(savedCourses);
     if (savedSettings) {
       const settings = JSON.parse(savedSettings);
       if (settings.theme) state.theme = settings.theme;
@@ -99,6 +102,10 @@ function loadState() {
 
 function saveRounds() {
   localStorage.setItem('MYFIVE_ROUNDS', JSON.stringify(state.rounds));
+}
+
+function saveCourses() {
+  localStorage.setItem('MYFIVE_COURSES', JSON.stringify(state.courses));
 }
 
 function saveCurrentRound() {
@@ -155,9 +162,39 @@ function statAppliesTo(statId, par) {
   return !stat.parOnly || stat.parOnly === par;
 }
 
+// --- COURSE MEMORY ---
+// Courses are learned from play: finishing a round stores the par you set for
+// each hole (by absolute hole number), so the next round there is pre-filled.
+function normalizeCourseName(name) {
+  return name.trim().toLowerCase();
+}
+
+function findCourse(name) {
+  const key = normalizeCourseName(name);
+  if (!key) return null;
+  return state.courses.find(c => normalizeCourseName(c.name) === key) || null;
+}
+
+function learnCourseFromRound(round) {
+  if (!round.courseName || round.courseName === 'Unspecified Course') return;
+  let course = findCourse(round.courseName);
+  if (!course) {
+    course = { id: 'course_' + Date.now(), name: round.courseName.trim(), pars: {} };
+    state.courses.push(course);
+  }
+  round.holes.forEach(h => {
+    course.pars[h.holeNumber] = h.par;
+  });
+  saveCourses();
+}
+
 // --- ROUND LOGIC ---
-function startNewRound(courseName, date, numHoles = 18) {
+// Holes carry their absolute course hole number (start at 10, play 9 -> holes
+// 10..18); `currentHole` is the POSITION in the round (1..totalHoles).
+function startNewRound(courseName, date, numHoles = 18, startHole = 1) {
   const parsedHoles = parseInt(numHoles) || 18;
+  const parsedStart = parseInt(startHole) || 1;
+  const course = findCourse(courseName);
   state.currentRound = {
     id: 'round_' + Date.now(),
     courseName: courseName.trim() || 'Unspecified Course',
@@ -165,12 +202,16 @@ function startNewRound(courseName, date, numHoles = 18) {
     status: 'in_progress',
     currentHole: 1,
     totalHoles: parsedHoles,
+    startHole: parsedStart,
     trackedStats: [...getSelectedStats()],
-    holes: Array.from({ length: parsedHoles }, (_, i) => ({
-      holeNumber: i + 1,
-      par: 4,
-      events: {}
-    }))
+    holes: Array.from({ length: parsedHoles }, (_, i) => {
+      const holeNumber = ((parsedStart - 1 + i) % 18) + 1;
+      return {
+        holeNumber,
+        par: (course && course.pars[holeNumber]) || 4,
+        events: {}
+      };
+    })
   };
   saveCurrentRound();
   renderActiveHole();
@@ -187,6 +228,7 @@ function discardCurrentRound() {
 function finishCurrentRound() {
   if (!state.currentRound) return;
   state.currentRound.status = 'finished';
+  learnCourseFromRound(state.currentRound);
   state.rounds.push(state.currentRound);
 
   const finishedRoundId = state.currentRound.id;
@@ -215,11 +257,12 @@ function calculateRoundStats(round) {
     eligibleCount[id] = 0;
   });
 
-  round.holes.forEach(hole => {
-    // Finished rounds count all holes; in-progress rounds count holes up to the
-    // current one (the current hole only if something is logged on it)
-    const isLogged = round.status === 'finished' || hole.holeNumber < round.currentHole ||
-                     (hole.holeNumber === round.currentHole && hasAnyEventChecked(hole, tracked));
+  round.holes.forEach((hole, idx) => {
+    // Finished rounds count all holes; in-progress rounds count positions up to
+    // the current one (the current position only if something is logged on it)
+    const position = idx + 1;
+    const isLogged = round.status === 'finished' || position < round.currentHole ||
+                     (position === round.currentHole && hasAnyEventChecked(hole, tracked));
 
     if (isLogged) {
       holesPlayed++;
@@ -350,7 +393,7 @@ function renderDashboard() {
       <div class="card card-alert">
         <div class="card-alert-body">
           <h3>Round in Progress</h3>
-          <p>${state.currentRound.courseName} — Hole ${state.currentRound.currentHole} of ${state.currentRound.totalHoles}</p>
+          <p>${state.currentRound.courseName} — Hole ${state.currentRound.holes[state.currentRound.currentHole - 1].holeNumber} (${state.currentRound.currentHole} of ${state.currentRound.totalHoles})</p>
         </div>
         <div class="card-alert-actions">
           <button class="btn btn-primary btn-sm" id="btn-resume-round">Resume</button>
@@ -458,8 +501,7 @@ function renderDashboard() {
 
   document.getElementById('btn-start-flow').addEventListener('click', () => {
     triggerHaptic();
-    document.getElementById('setup-course').value = '';
-    document.getElementById('setup-date').value = new Date().toISOString().split('T')[0];
+    prepareSetupScreen();
     showScreen('screen-setup');
   });
 
@@ -651,8 +693,8 @@ function renderActiveHole() {
       </div>
       <div class="hole-title-group">
         <span class="hole-label">Hole</span>
-        <h1 class="hole-number">${round.currentHole}</h1>
-        <span class="hole-total">of ${round.totalHoles}</span>
+        <h1 class="hole-number">${hole.holeNumber}</h1>
+        <span class="hole-total">${round.currentHole} of ${round.totalHoles}</span>
       </div>
       <div class="hole-nav-arrow" id="btn-hole-next-header" ${round.currentHole === round.totalHoles ? 'style="visibility: hidden;"' : ''}>
         →
@@ -751,7 +793,7 @@ function renderActiveHole() {
     abortBtn.addEventListener('click', () => {
       triggerHaptic();
       saveHoleState();
-      if (confirm(`Do you want to save and finish this round early at Hole ${round.currentHole}?`)) {
+      if (confirm(`Do you want to save and finish this round early at Hole ${hole.holeNumber}?`)) {
         // Cut the round short to the current hole
         round.holes = round.holes.slice(0, round.currentHole);
         round.totalHoles = round.currentHole;
@@ -1210,6 +1252,18 @@ function renderSettingsView() {
     .map(id => `<li>${STATS_BY_ID[id].title}</li>`)
     .join('');
 
+  const coursesHTML = state.courses.length === 0
+    ? '<p class="card-desc" style="margin-bottom: 0;">No courses remembered yet. Finish a round and the course\'s hole pars are saved automatically.</p>'
+    : `<div class="course-list">${state.courses.map(c => `
+        <div class="course-row">
+          <div class="course-row-info">
+            <span class="course-row-name">${c.name}</span>
+            <span class="course-row-meta">${Object.keys(c.pars).length} holes remembered</span>
+          </div>
+          <button class="btn btn-sm btn-danger-text" data-delete-course="${c.id}">Delete</button>
+        </div>
+      `).join('')}</div>`;
+
   container.innerHTML = `
     <!-- My 5 Stats -->
     <div class="card">
@@ -1217,6 +1271,13 @@ function renderSettingsView() {
       <p class="card-desc">The five events you track during a round. Finished rounds keep the stats they were played with.</p>
       <ul class="myfive-list">${myFiveList}</ul>
       <button class="btn btn-accent btn-full" id="btn-change-stats">Change My 5</button>
+    </div>
+
+    <!-- Saved Courses -->
+    <div class="card">
+      <h3 class="card-title">Saved Courses</h3>
+      <p class="card-desc">Courses you've played, with the par you set for each hole. Pars are pre-filled when you play them again and updated after every round.</p>
+      ${coursesHTML}
     </div>
 
     <!-- Theme Selection -->
@@ -1263,6 +1324,20 @@ function renderSettingsView() {
     </div>
   `;
 
+  // Bind course delete buttons
+  container.querySelectorAll('[data-delete-course]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      triggerHaptic();
+      const courseId = btn.getAttribute('data-delete-course');
+      const course = state.courses.find(c => c.id === courseId);
+      if (course && confirm(`Forget "${course.name}" and its remembered pars? Played rounds are not affected.`)) {
+        state.courses = state.courses.filter(c => c.id !== courseId);
+        saveCourses();
+        renderSettingsView();
+      }
+    });
+  });
+
   // Bind My 5 change button
   document.getElementById('btn-change-stats').addEventListener('click', () => {
     triggerHaptic();
@@ -1304,10 +1379,12 @@ function renderSettingsView() {
         localStorage.removeItem('MYFIVE_ROUNDS');
         localStorage.removeItem('MYFIVE_CURRENT_ROUND');
         localStorage.removeItem('MYFIVE_SETTINGS');
+        localStorage.removeItem('MYFIVE_COURSES');
         state.rounds = [];
         state.currentRound = null;
         state.theme = 'system';
         state.selectedStats = null;
+        state.courses = [];
         applyTheme('system');
         alert('All app data has been reset.');
         renderStatPicker({ firstRun: true });
@@ -1327,11 +1404,12 @@ function renderSettingsView() {
 
 function exportJSONData() {
   const data = {
-    version: '2.0',
+    version: '2.1',
     app: 'MyFive Golf',
     exportedAt: new Date().toISOString(),
     theme: state.theme,
     selectedStats: state.selectedStats,
+    courses: state.courses,
     rounds: state.rounds
   };
 
@@ -1419,6 +1497,17 @@ function importJSONData(file) {
           const valid = data.selectedStats.filter(id => STATS_BY_ID[id]);
           if (valid.length === TRACK_COUNT) state.selectedStats = valid;
         }
+        if (Array.isArray(data.courses)) {
+          state.courses = data.courses.filter(c => c && c.name && c.pars);
+        } else {
+          // Older backups (v2.0 / Tiger 5) have no courses: learn them from the
+          // imported rounds, oldest first so the newest pars win
+          state.courses = [];
+          [...state.rounds]
+            .sort((a, b) => new Date(a.date) - new Date(b.date))
+            .forEach(learnCourseFromRound);
+        }
+        saveCourses();
         saveRounds();
         saveSettings();
         alert(`Successfully imported ${data.rounds.length} round records!`);
@@ -1433,6 +1522,34 @@ function importJSONData(file) {
     }
   };
   reader.readAsText(file);
+}
+
+// --- SETUP SCREEN ---
+function prepareSetupScreen() {
+  document.getElementById('setup-course').value = '';
+  document.getElementById('setup-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('setup-holes').value = '18';
+
+  // Course name suggestions from remembered courses
+  const datalist = document.getElementById('course-suggestions');
+  datalist.innerHTML = state.courses
+    .map(c => `<option value="${c.name.replace(/"/g, '&quot;')}"></option>`)
+    .join('');
+
+  // Starting hole selector (1-18)
+  const startSelect = document.getElementById('setup-start-hole');
+  startSelect.innerHTML = Array.from({ length: 18 }, (_, i) =>
+    `<option value="${i + 1}">Hole ${i + 1}</option>`
+  ).join('');
+  startSelect.value = '1';
+
+  updateCourseHint();
+}
+
+function updateCourseHint() {
+  const hint = document.getElementById('course-known-hint');
+  const course = findCourse(document.getElementById('setup-course').value);
+  hint.classList.toggle('hidden', !course);
 }
 
 // --- INITIALIZATION ---
@@ -1461,13 +1578,17 @@ window.addEventListener('DOMContentLoaded', () => {
   // Setup view: Date defaults to today
   document.getElementById('setup-date').value = new Date().toISOString().split('T')[0];
 
+  // Show the "known course" hint while typing a course name
+  document.getElementById('setup-course').addEventListener('input', updateCourseHint);
+
   // Bind setup round start button
   document.getElementById('btn-setup-start').addEventListener('click', () => {
     triggerHaptic();
     const course = document.getElementById('setup-course').value;
     const date = document.getElementById('setup-date').value;
     const holes = document.getElementById('setup-holes').value;
-    startNewRound(course, date, holes);
+    const startHole = document.getElementById('setup-start-hole').value;
+    startNewRound(course, date, holes, startHole);
   });
 
   // Bind setup cancel button

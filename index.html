@@ -52,7 +52,9 @@
 
         <div class="form-group">
           <label for="setup-course">Course Name</label>
-          <input type="text" id="setup-course" class="form-control" placeholder="e.g., Augusta National, Pebble Beach" autocomplete="off">
+          <input type="text" id="setup-course" class="form-control" placeholder="e.g., Augusta National, Pebble Beach" autocomplete="off" list="course-suggestions">
+          <datalist id="course-suggestions"></datalist>
+          <p class="course-hint hidden" id="course-known-hint">⛳ Known course — hole pars will be pre-filled</p>
         </div>
 
         <div class="form-group">
@@ -68,6 +70,11 @@
             <option value="6">6 Holes</option>
             <option value="12">12 Holes</option>
           </select>
+        </div>
+
+        <div class="form-group">
+          <label for="setup-start-hole">Starting Hole</label>
+          <select id="setup-start-hole" class="form-control"></select>
         </div>
 
         <div class="button-stack" style="margin-top: 2rem;">
